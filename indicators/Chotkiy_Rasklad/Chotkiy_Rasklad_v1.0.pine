@@ -3,7 +3,7 @@
 // © Sergei Seivach
 
 //@version=6
-indicator("Chotkiy Rasklad 1.1", overlay=true, max_labels_count=500)
+indicator("Chotkiy Rasklad 1.2 (Synced Order)", overlay=true, max_labels_count=500)
 
 // ==========================================
 // 1. SETTINGS
@@ -140,8 +140,8 @@ if exitShort
 // ==========================================
 
 padding = ta.atr(14) * 0.5
+// Label Order: 3HA -> S2 -> E2 -> VWAP -> HRSI
 baseText = "3HA+S2+E2\nVWAP+HRSI"
-// Append TIME text if in a good session
 finalTxtBull = isGoodTime ? baseText + "\nTIME" : baseText
 finalTxtBear = isGoodTime ? baseText + "\nTIME" : baseText
 txtExit      = "EXIT"
@@ -165,7 +165,7 @@ if exitShort
     alert("EXIT SHORT", alert.freq_once_per_bar_close)
 
 // ==========================================
-// 6. DASHBOARD LOGIC (UPDATED)
+// 6. DASHBOARD LOGIC (SYNCED ORDER)
 // ==========================================
 
 // --- Prepare Data ---
@@ -242,35 +242,36 @@ if showDash and barstate.islast
     r += 1
 
     // --- INDICATORS LIST ---
+    // Order now matches label: 3HA -> S2 -> E2 -> VWAP -> HRSI
     
-    // SMA
+    // 1. 3 HAshi (Pattern)
+    table.cell(dash, 0, r, "3 HAshi", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
+    table.cell(dash, 1, r, bullishTrigger ? "LONG" : bearishTrigger ? "SHORT" : "---", text_color=color.black, bgcolor=c_pat, text_size=dashSize)
+    r += 1
+    
+    // 2. SMA 200
     table.cell(dash, 0, r, "SMA 200", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
     table.cell(dash, 1, r, s_sma ? "BULL" : "BEAR", text_color=color.black, bgcolor=c_sma, text_size=dashSize)
     r += 1
 
-    // EMA
+    // 3. EMA 200
     table.cell(dash, 0, r, "EMA 200", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
     table.cell(dash, 1, r, s_ema ? "BULL" : "BEAR", text_color=color.black, bgcolor=c_ema, text_size=dashSize)
     r += 1
 
-    // VWAP
+    // 4. VWAP
     table.cell(dash, 0, r, "VWAP", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
     table.cell(dash, 1, r, s_vwap ? "BULL" : "BEAR", text_color=color.black, bgcolor=c_vwap, text_size=dashSize)
     r += 1
 
-    // HARSI
+    // 5. HARSI
     table.cell(dash, 0, r, "HARSI", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
     table.cell(dash, 1, r, isHarsiGreen ? "UP" : "DOWN", text_color=color.black, bgcolor=c_harsi, text_size=dashSize)
     r += 1
 
-    // TIME (Renamed from SESSION)
+    // 6. TIME (Context)
     table.cell(dash, 0, r, "TIME", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
     table.cell(dash, 1, r, txtTime, text_color=color.black, bgcolor=c_time, text_size=dashSize)
-    r += 1
-
-    // 3 HAshi (Renamed from 3HA PATTERN)
-    table.cell(dash, 0, r, "3 HAshi", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
-    table.cell(dash, 1, r, bullishTrigger ? "LONG" : bearishTrigger ? "SHORT" : "---", text_color=color.black, bgcolor=c_pat, text_size=dashSize)
     r += 1
 
     // --- SEPARATOR ---
