@@ -3,287 +3,165 @@
 // © Sergei Seivach
 
 //@version=6
-indicator("Chotkiy Rasklad 1.2 (Synced Order)", overlay=true, max_labels_count=500)
+indicator("Chotkiy Rasklad 1.3.2", overlay=true, max_labels_count=500)
 
 // ==========================================
 // 1. SETTINGS
 // ==========================================
 
-// --- Trend Filters ---
-lenSma = input.int(200, "SMA Length", group="Trend Filters")
-lenEma = input.int(200, "EMA Length", group="Trend Filters")
-
-// --- HARSI Settings ---
+lenSma = input.int(200, "SMA Length", group="Global Filters")
+lenEma = input.int(200, "EMA Length", group="Global Filters")
 lenRSI       = input.int(7, "HARSI RSI Length", group="HARSI Settings")
 lenSmoothing = input.int(14, "HARSI Smoothing", group="HARSI Settings")
 smoothing    = input.int(1, "HARSI Open Smoothing", group="HARSI Settings")
 
-// --- TIME Settings ---
-// Format: HHMM-HHMM (Exchange Time / NY Time)
-sessOpen    = input.session("0930-0945", "Opening Mess", group="Time Settings")    // The chaotic open
-sessMorning = input.session("0945-1130", "Morning Session", group="Time Settings") // Best trend time
-sessEvening = input.session("1400-1530", "Evening Session", group="Time Settings") // Power hour
+sessOpen    = input.session("0930-0945", "Opening Mess", group="Time Settings")
+sessMorning = input.session("0945-1130", "Morning Session", group="Time Settings")
+sessEvening = input.session("1400-1530", "Evening Session", group="Time Settings")
 daysOfWeek  = "1234567" 
 
-// --- DASHBOARD SETTINGS ---
 showDash    = input.bool(true, "Show Dashboard", group="Dashboard")
-dashSize    = input.string(size.small, "Dashboard Size", options=[size.tiny, size.small, size.normal], group="Dashboard")
-// OFFSETS
-dashOffsetV = input.int(2, "Vertical Offset (Top)", minval=0, maxval=20, group="Dashboard")
-dashOffsetH = input.int(2, "Horizontal Offset (Right)", minval=0, maxval=10, group="Dashboard")
+dashSize    = input.string(size.tiny, "Dashboard Size", options=[size.tiny, size.small, size.normal], group="Dashboard")
+// DEFAULTS: V=0, H=3
+dashOffsetV = input.int(0, "Vertical Offset (Top)", minval=0, maxval=20, group="Dashboard")
+dashOffsetH = input.int(3, "Horizontal Offset (Right)", minval=0, maxval=10, group="Dashboard")
 
-// --- COLORS ---
-colLongBright  = color.rgb(0, 255, 51)    // Neon Lime
-colLongPale    = color.rgb(131, 255, 135) // Pastel Green
-colShortBright = #FF1744   // Neon Red
-colShortPale   = #E57373   // Pastel Red
+colLongBright  = color.rgb(0, 255, 51)    
+colLongPale    = color.rgb(131, 255, 135) 
+colShortBright = #FF1744   
+colShortPale   = #E57373   
 colText        = color.black 
 colTextW       = color.white
 colExit        = color.gray
-
-// Backgrounds
-colDarkBg      = color.rgb(10, 10, 10, 0)    // Solid Dark Background
-colTransp      = color.new(color.black, 100) // Invisible
+colDarkBg      = color.rgb(15, 15, 15)       
+colTransp      = color.new(color.black, 100) 
+// Border color: 100% Transparent
+colBorder      = color.new(color.black, 100)
 
 // ==========================================
-// 2. TIME CHECK
+// 2. GLOBAL HELPER FUNCTIONS
 // ==========================================
-// Check time zones
+
+get_rasklad_values() =>
+    ha_c = (open + high + low + close) / 4
+    var float ha_o = na
+    ha_o := na(ha_o[1]) ? (open + close) / 2 : (nz(ha_o[1]) + nz(ha_c[1])) / 2
+    ha_l = math.min(low, math.min(ha_o, ha_c))
+    
+    isGreen = ha_c > ha_o
+    isRed   = ha_c < ha_o
+    
+    smaVal  = ta.sma(close, lenSma)
+    emaVal  = ta.ema(close, lenEma)
+    vwapVal = ta.vwap(close)
+    
+    rsiVal  = ta.rsi(close, lenRSI)
+    isHarsiGreen = rsiVal > 50
+    
+    tG = (isGreen[0] and isGreen[1] and isGreen[2]) and ha_l[2] < ha_l[1] and ha_l[1] < ha_l[0]
+    tR = (isRed[0] and isRed[1] and isRed[2]) and ha_l[2] > ha_l[1] and ha_l[1] > ha_l[0]
+    
+    bSma  = close > smaVal
+    bEma  = close > emaVal
+    bVwap = close > vwapVal
+    
+    isBuy  = tG and bSma and bEma and bVwap and isHarsiGreen
+    isSell = tR and not bSma and not bEma and not bVwap and not isHarsiGreen
+    
+    [bSma, bEma, bVwap, isHarsiGreen, tG, tR, isBuy, isSell]
+
+draw_bool_row(table dash, int row_idx, string title, bool v1, bool v5, bool v15, bool v60, bool v240, bool vD, color cUp, color cDn, string sSize, color bg) =>
+    table.cell(dash, 0, row_idx, title, text_color=color.white, bgcolor=bg, text_halign=text.align_left, text_size=sSize)
+    vals = array.from(v1, v5, v15, v60, v240, vD)
+    for i = 0 to 5
+        bool val = array.get(vals, i)
+        table.cell(dash, i + 1, row_idx, val ? "BULL" : "BEAR", bgcolor=val ? cUp : cDn, text_size=sSize)
+
+// ==========================================
+// 3. DATA ACQUISITION
+// ==========================================
+
+[bSma1, bEma1, bVwap1, bHar1, tG1, tR1, actB1, actS1] = request.security(syminfo.tickerid, "1", get_rasklad_values())
+[bSma5, bEma5, bVwap5, bHar5, tG5, tR5, actB5, actS5] = request.security(syminfo.tickerid, "5", get_rasklad_values())
+[bSma15, bEma15, bVwap15, bHar15, tG15, tR15, actB15, actS15] = request.security(syminfo.tickerid, "15", get_rasklad_values())
+[bSma60, bEma60, bVwap60, bHar60, tG60, tR60, actB60, actS60] = request.security(syminfo.tickerid, "60", get_rasklad_values())
+[bSma240, bEma240, bVwap240, bHar240, tG240, tR240, actB240, actS240] = request.security(syminfo.tickerid, "240", get_rasklad_values())
+[bSmaD, bEmaD, bVwapD, bHarD, tGD, tRD, actBD, actSD] = request.security(syminfo.tickerid, "D", get_rasklad_values())
+
 inOpen    = not na(time(timeframe.period, sessOpen + ":" + daysOfWeek))
 inMorning = not na(time(timeframe.period, sessMorning + ":" + daysOfWeek))
 inEvening = not na(time(timeframe.period, sessEvening + ":" + daysOfWeek))
-
-// "Good Time" is strictly the active trend sessions (Morning + Evening)
 isGoodTime = inMorning or inEvening
 
 // ==========================================
-// 3. CALCULATIONS
+// 4. DASHBOARD RENDER
 // ==========================================
 
-// --- HA Price ---
-ha_close = (open + high + low + close) / 4
-var float ha_open = na
-if na(ha_open)
-    ha_open := (open + close) / 2
-else
-    ha_open := (ha_open[1] + ha_close[1]) / 2
-
-ha_high = math.max(high, math.max(ha_open, ha_close))
-ha_low  = math.min(low, math.min(ha_open, ha_close))
-
-isRed   = ha_close < ha_open
-isGreen = ha_close > ha_open
-
-// --- Filters ---
-smaVal  = ta.sma(close, lenSma)
-emaVal  = ta.ema(close, lenEma)
-vwapVal = ta.vwap(close)
-
-// --- HARSI ---
-zrsi(src, len) => ta.rsi(src, len) - 50
-rsiClose      = zrsi(ohlc4, lenRSI)
-rsiHighRaw    = zrsi(high, lenRSI)
-rsiLowRaw     = zrsi(low, lenRSI)
-rsiHighActual = math.max(rsiHighRaw, rsiLowRaw)
-rsiLowActual  = math.min(rsiHighRaw, rsiLowRaw)
-rsiOpenVirtual = nz(rsiClose[1], rsiClose)
-harsi_close    = (rsiOpenVirtual + rsiHighActual + rsiLowActual + rsiClose) / 4
-var float harsi_open = na
-if na(harsi_open)
-    harsi_open := (rsiOpenVirtual + rsiClose) / 2
-else
-    harsi_open := ((harsi_open * smoothing) + harsi_close[1]) / (smoothing + 1)
-
-isHarsiGreen = harsi_close > harsi_open
-isHarsiRed   = harsi_close < harsi_open
-
-// ==========================================
-// 4. SIGNAL LOGIC
-// ==========================================
-
-// --- Patterns ---
-threeGreen     = isGreen[0] and isGreen[1] and isGreen[2]
-higherLows     = ha_low[2] < ha_low[1] and ha_low[1] < ha_low[0]
-higherHighs    = ha_high[2] < ha_high[1] and ha_high[1] < ha_high[0]
-bullishTrigger = threeGreen and higherLows and higherHighs
-
-threeRed       = isRed[0] and isRed[1] and isRed[2]
-lowerLows      = ha_low[2] > ha_low[1] and ha_low[1] > ha_low[0]
-lowerHighs     = ha_high[2] > ha_high[1] and ha_high[1] > ha_high[0]
-bearishTrigger = threeRed and lowerLows and lowerHighs
-
-// --- Strong Filters ---
-isStrongBull = (close > smaVal) and (close > emaVal) and (close > vwapVal) and isHarsiGreen
-isStrongBear = (close < smaVal) and (close < emaVal) and (close < vwapVal) and isHarsiRed
-
-var bool alreadyLong  = false
-var bool alreadyShort = false
-
-fireLong  = bullishTrigger and isStrongBull and not alreadyLong
-fireShort = bearishTrigger and isStrongBear and not alreadyShort
-
-exitLong  = alreadyLong and isRed
-exitShort = alreadyShort and isGreen
-
-if fireLong
-    alreadyLong := true
-if exitLong
-    alreadyLong := false 
-
-if fireShort
-    alreadyShort := true
-if exitShort
-    alreadyShort := false
-
-// ==========================================
-// 5. DRAWING SIGNALS
-// ==========================================
-
-padding = ta.atr(14) * 0.5
-// Label Order: 3HA -> S2 -> E2 -> VWAP -> HRSI
-baseText = "3HA+S2+E2\nVWAP+HRSI"
-finalTxtBull = isGoodTime ? baseText + "\nTIME" : baseText
-finalTxtBear = isGoodTime ? baseText + "\nTIME" : baseText
-txtExit      = "EXIT"
-
-if fireLong
-    colFinal = isGoodTime ? colLongBright : colLongPale
-    label.new(x=bar_index, y=low - padding, text=finalTxtBull, color=colFinal, textcolor=colText, style=label.style_label_up, size=size.tiny)
-    alert("LONG ENTRY: " + finalTxtBull, alert.freq_once_per_bar_close)
-
-if fireShort
-    colFinal = isGoodTime ? colShortBright : colShortPale
-    label.new(x=bar_index, y=high + padding, text=finalTxtBear, color=colFinal, textcolor=colTextW, style=label.style_label_down, size=size.tiny)
-    alert("SHORT ENTRY: " + finalTxtBear, alert.freq_once_per_bar_close)
-
-if exitLong
-    label.new(x=bar_index, y=low - padding, text=txtExit, color=colExit, textcolor=colTextW, style=label.style_label_up, size=size.tiny)
-    alert("EXIT LONG", alert.freq_once_per_bar_close)
-
-if exitShort
-    label.new(x=bar_index, y=high + padding, text=txtExit, color=colExit, textcolor=colTextW, style=label.style_label_down, size=size.tiny)
-    alert("EXIT SHORT", alert.freq_once_per_bar_close)
-
-// ==========================================
-// 6. DASHBOARD LOGIC (SYNCED ORDER)
-// ==========================================
-
-// --- Prepare Data ---
-s_sma   = close > smaVal
-s_ema   = close > emaVal
-s_vwap  = close > vwapVal
-
-c_sma   = s_sma ? colLongBright : colShortBright
-c_ema   = s_ema ? colLongBright : colShortBright
-c_vwap  = s_vwap ? colLongBright : colShortBright
-c_harsi = isHarsiGreen ? colLongBright : colShortBright
-
-// --- TIME STATUS LOGIC ---
-string txtTime = "QUIET"
-color c_time   = color.gray
-
-if inOpen
-    txtTime := "MESS"
-    c_time  := colShortBright // Red (Danger)
-else if isGoodTime
-    txtTime := "GOOD"
-    c_time  := colLongBright  // Green (Active)
-else
-    txtTime := "QUIET"
-    c_time  := color.gray     // Gray (Lunch/Post-market)
-
-// --- Pattern Logic ---
-c_pat = color.gray
-if bullishTrigger 
-    c_pat := colLongBright
-else if bearishTrigger
-    c_pat := colShortBright
-
-// --- Action Logic ---
-string sigTxt = "WAIT"
-color c_sig   = color.gray
-
-if alreadyLong
-    sigTxt := "IN LONG"
-    c_sig := colLongPale
-else if alreadyShort
-    sigTxt := "IN SHORT"
-    c_sig := colShortPale
-else if bullishTrigger and isStrongBull
-    sigTxt := "BUY NOW"
-    c_sig := colLongBright
-else if bearishTrigger and isStrongBear
-    sigTxt := "SELL NOW"
-    c_sig := colShortBright
-
-// --- DRAW TABLE ---
-totalCols = 2 + dashOffsetH
-var table dash = table.new(position.top_right, totalCols, 40, bgcolor=colTransp, frame_width=0, border_width=0)
+totalCols = 7 + dashOffsetH
+// Border color is set to transparent (invisible grid)
+var table dash = table.new(position.top_right, totalCols, 25, frame_width=0, border_width=1, border_color=colBorder)
 
 if showDash and barstate.islast
-    
-    // 1. FILL TRANSPARENT OFFSETS
+    // 1. Vertical Offset
     if dashOffsetV > 0
         for r = 0 to dashOffsetV - 1
-            for c = 0 to totalCols - 1
-                table.cell(dash, c, r, "", bgcolor=colTransp)
+            table.cell(dash, 0, r, "", bgcolor=colTransp)
     
+    // 2. Horizontal Offset
     if dashOffsetH > 0
-        for c = 2 to totalCols - 1
-            for r = 0 to 30 
-                table.cell(dash, c, r, "   ", bgcolor=colTransp)
+        for c = 7 to totalCols - 1
+            for r = 0 to 20
+                table.cell(dash, c, r, "", bgcolor=colTransp)
 
-    // Helper
     r = dashOffsetV
-
-    // --- HEADER: RASKLAD ---
-    table.cell(dash, 0, r, "RASKLAD", text_color=color.white, text_size=dashSize, bgcolor=color.new(color.blue, 50))
-    table.merge_cells(dash, 0, r, 1, r)
-    r += 1
-
-    // --- INDICATORS LIST ---
-    // Order now matches label: 3HA -> S2 -> E2 -> VWAP -> HRSI
     
-    // 1. 3 HAshi (Pattern)
-    table.cell(dash, 0, r, "3 HAshi", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
-    table.cell(dash, 1, r, bullishTrigger ? "LONG" : bearishTrigger ? "SHORT" : "---", text_color=color.black, bgcolor=c_pat, text_size=dashSize)
+    // --- HEADER ---
+    table.cell(dash, 0, r, "RASKLAD v1.3.2", text_color=color.white, bgcolor=color.new(color.blue, 40), text_size=dashSize)
+    tfs = array.from("1m", "5m", "15m", "1h", "4h", "1d")
+    for i = 0 to 5
+        table.cell(dash, i + 1, r, array.get(tfs, i), text_color=color.white, bgcolor=color.new(color.blue, 60), text_size=dashSize)
     r += 1
+
+    // --- ROW: 3 HAshi ---
+    table.cell(dash, 0, r, "3 HAshi", text_color=color.white, bgcolor=colDarkBg, text_halign=text.align_left, text_size=dashSize)
+    p_up = array.from(tG1, tG5, tG15, tG60, tG240, tGD)
+    p_dn = array.from(tR1, tR5, tR15, tR60, tR240, tRD)
+    for i = 0 to 5
+        u = array.get(p_up, i), d = array.get(p_dn, i)
+        table.cell(dash, i + 1, r, u ? "LONG" : d ? "SHORT" : "---", bgcolor=u ? colLongBright : d ? colShortBright : color.gray, text_size=dashSize)
+    r += 1
+
+    // --- ROWS: TREND FILTERS ---
+    draw_bool_row(dash, r, "SMA 200", bSma1, bSma5, bSma15, bSma60, bSma240, bSmaD, colLongBright, colShortBright, dashSize, colDarkBg), r += 1
+    draw_bool_row(dash, r, "EMA 200", bEma1, bEma5, bEma15, bEma60, bEma240, bEmaD, colLongBright, colShortBright, dashSize, colDarkBg), r += 1
+    draw_bool_row(dash, r, "VWAP", bVwap1, bVwap5, bVwap15, bVwap60, bVwap240, bVwapD, colLongBright, colShortBright, dashSize, colDarkBg), r += 1
     
-    // 2. SMA 200
-    table.cell(dash, 0, r, "SMA 200", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
-    table.cell(dash, 1, r, s_sma ? "BULL" : "BEAR", text_color=color.black, bgcolor=c_sma, text_size=dashSize)
+    // --- ROW: HARSI ---
+    table.cell(dash, 0, r, "HARSI", text_color=color.white, bgcolor=colDarkBg, text_halign=text.align_left, text_size=dashSize)
+    h_vals = array.from(bHar1, bHar5, bHar15, bHar60, bHar240, bHarD)
+    for i = 0 to 5
+        hv = array.get(h_vals, i)
+        table.cell(dash, i + 1, r, hv ? "UP" : "DOWN", bgcolor=hv ? colLongBright : colShortBright, text_size=dashSize)
     r += 1
 
-    // 3. EMA 200
-    table.cell(dash, 0, r, "EMA 200", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
-    table.cell(dash, 1, r, s_ema ? "BULL" : "BEAR", text_color=color.black, bgcolor=c_ema, text_size=dashSize)
+    // --- ROW: TIME ---
+    table.cell(dash, 0, r, "TIME", text_color=color.white, bgcolor=colDarkBg, text_halign=text.align_left, text_size=dashSize)
+    t_txt = inOpen ? "MESS" : isGoodTime ? "GOOD" : "QUIET"
+    t_col = inOpen ? colShortBright : isGoodTime ? colLongBright : color.gray
+    table.cell(dash, 1, r, t_txt, bgcolor=t_col, text_size=dashSize)
+    table.merge_cells(dash, 1, r, 6, r)
     r += 1
 
-    // 4. VWAP
-    table.cell(dash, 0, r, "VWAP", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
-    table.cell(dash, 1, r, s_vwap ? "BULL" : "BEAR", text_color=color.black, bgcolor=c_vwap, text_size=dashSize)
-    r += 1
+    // --- ROW: ACTION ---
+    table.cell(dash, 0, r, "ACTION", text_color=color.white, bgcolor=colDarkBg, text_halign=text.align_left, text_size=dashSize)
+    aB = array.from(actB1, actB5, actB15, actB60, actB240, actBD)
+    aS = array.from(actS1, actS5, actS15, actS60, actS240, actSD)
+    for i = 0 to 5
+        buy = array.get(aB, i), sell = array.get(aS, i)
+        table.cell(dash, i + 1, r, buy ? "BUY" : sell ? "SELL" : "WAIT", bgcolor=buy ? colLongBright : sell ? colShortBright : color.gray, text_size=dashSize)
 
-    // 5. HARSI
-    table.cell(dash, 0, r, "HARSI", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
-    table.cell(dash, 1, r, isHarsiGreen ? "UP" : "DOWN", text_color=color.black, bgcolor=c_harsi, text_size=dashSize)
-    r += 1
-
-    // 6. TIME (Context)
-    table.cell(dash, 0, r, "TIME", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
-    table.cell(dash, 1, r, txtTime, text_color=color.black, bgcolor=c_time, text_size=dashSize)
-    r += 1
-
-    // --- SEPARATOR ---
-    table.cell(dash, 0, r, "---------------------", text_color=color.gray, text_size=size.tiny, bgcolor=colDarkBg)
-    table.merge_cells(dash, 0, r, 1, r)
-    r += 1
-
-    // --- ACTION ---
-    table.cell(dash, 0, r, "ACTION", text_color=color.white, text_size=dashSize, text_halign=text.align_left, bgcolor=colDarkBg)
-    table.cell(dash, 1, r, sigTxt, text_color=color.black, bgcolor=c_sig, text_size=dashSize)
-
-alertcondition(fireLong, title="Royal Flush CALL", message="Entry Long")
-alertcondition(fireShort, title="Royal Flush PUT", message="Entry Short")
-alertcondition(exitLong, title="Exit CALL", message="Close Long")
-alertcondition(exitShort, title="Exit PUT", message="Close Short")
+// ==========================================
+// 5. ALERTS
+// ==========================================
+alertcondition(actB5 or actB15, "MTF Buy Signal", "Trend alignment detected on multiple TFs")
+alertcondition(actS5 or actS15, "MTF Sell Signal", "Trend alignment detected on multiple TFs")
