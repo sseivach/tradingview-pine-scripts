@@ -3,7 +3,7 @@
 // © Sergei Seivach
 
 //@version=6
-indicator("Chotkiy Rasklad 1.3.2", overlay=true, max_labels_count=500)
+indicator("Chotkiy Rasklad 1.4", overlay=true, max_labels_count=500)
 
 // ==========================================
 // 1. SETTINGS
@@ -35,7 +35,6 @@ colTextW       = color.white
 colExit        = color.gray
 colDarkBg      = color.rgb(15, 15, 15)       
 colTransp      = color.new(color.black, 100) 
-// Border color: 100% Transparent
 colBorder      = color.new(color.black, 100)
 
 // ==========================================
@@ -68,7 +67,8 @@ get_rasklad_values() =>
     isBuy  = tG and bSma and bEma and bVwap and isHarsiGreen
     isSell = tR and not bSma and not bEma and not bVwap and not isHarsiGreen
     
-    [bSma, bEma, bVwap, isHarsiGreen, tG, tR, isBuy, isSell]
+    // Return all data needed for both Chart Labels and MTF Dashboard
+    [bSma, bEma, bVwap, isHarsiGreen, tG, tR, isBuy, isSell, isGreen, isRed]
 
 draw_bool_row(table dash, int row_idx, string title, bool v1, bool v5, bool v15, bool v60, bool v240, bool vD, color cUp, color cDn, string sSize, color bg) =>
     table.cell(dash, 0, row_idx, title, text_color=color.white, bgcolor=bg, text_halign=text.align_left, text_size=sSize)
@@ -81,12 +81,16 @@ draw_bool_row(table dash, int row_idx, string title, bool v1, bool v5, bool v15,
 // 3. DATA ACQUISITION
 // ==========================================
 
-[bSma1, bEma1, bVwap1, bHar1, tG1, tR1, actB1, actS1] = request.security(syminfo.tickerid, "1", get_rasklad_values())
-[bSma5, bEma5, bVwap5, bHar5, tG5, tR5, actB5, actS5] = request.security(syminfo.tickerid, "5", get_rasklad_values())
-[bSma15, bEma15, bVwap15, bHar15, tG15, tR15, actB15, actS15] = request.security(syminfo.tickerid, "15", get_rasklad_values())
-[bSma60, bEma60, bVwap60, bHar60, tG60, tR60, actB60, actS60] = request.security(syminfo.tickerid, "60", get_rasklad_values())
-[bSma240, bEma240, bVwap240, bHar240, tG240, tR240, actB240, actS240] = request.security(syminfo.tickerid, "240", get_rasklad_values())
-[bSmaD, bEmaD, bVwapD, bHarD, tGD, tRD, actBD, actSD] = request.security(syminfo.tickerid, "D", get_rasklad_values())
+// MTF Data
+[bSma1, bEma1, bVwap1, bHar1, tG1, tR1, actB1, actS1, g1, r1] = request.security(syminfo.tickerid, "1", get_rasklad_values())
+[bSma5, bEma5, bVwap5, bHar5, tG5, tR5, actB5, actS5, g5, r5] = request.security(syminfo.tickerid, "5", get_rasklad_values())
+[bSma15, bEma15, bVwap15, bHar15, tG15, tR15, actB15, actS15, g15, r15] = request.security(syminfo.tickerid, "15", get_rasklad_values())
+[bSma60, bEma60, bVwap60, bHar60, tG60, tR60, actB60, actS60, g60, r60] = request.security(syminfo.tickerid, "60", get_rasklad_values())
+[bSma240, bEma240, bVwap240, bHar240, tG240, tR240, actB240, actS240, g240, r240] = request.security(syminfo.tickerid, "240", get_rasklad_values())
+[bSmaD, bEmaD, bVwapD, bHarD, tGD, tRD, actBD, actSD, gD, rD] = request.security(syminfo.tickerid, "D", get_rasklad_values())
+
+// Current Chart Data
+[curSma, curEma, curVwap, curHar, curTG, curTR, curBuy, curSell, curGreen, curRed] = get_rasklad_values()
 
 inOpen    = not na(time(timeframe.period, sessOpen + ":" + daysOfWeek))
 inMorning = not na(time(timeframe.period, sessMorning + ":" + daysOfWeek))
@@ -94,20 +98,64 @@ inEvening = not na(time(timeframe.period, sessEvening + ":" + daysOfWeek))
 isGoodTime = inMorning or inEvening
 
 // ==========================================
-// 4. DASHBOARD RENDER
+// 4. DRAWING SIGNALS (CHART)
+// ==========================================
+
+var bool alreadyLong  = false
+var bool alreadyShort = false
+
+fireLong  = curBuy and not alreadyLong
+fireShort = curSell and not alreadyShort
+exitLong  = alreadyLong and curRed
+exitShort = alreadyShort and curGreen
+
+if fireLong
+    alreadyLong := true
+if exitLong
+    alreadyLong := false 
+
+if fireShort
+    alreadyShort := true
+if exitShort
+    alreadyShort := false
+
+// Draw Labels
+padding = ta.atr(14) * 0.5
+baseText = "3HA+S2+E2\nVWAP+HRSI"
+finalTxtBull = isGoodTime ? baseText + "\nTIME" : baseText
+finalTxtBear = isGoodTime ? baseText + "\nTIME" : baseText
+txtExit      = "EXIT"
+
+if fireLong
+    colFinal = isGoodTime ? colLongBright : colLongPale
+    label.new(x=bar_index, y=low - padding, text=finalTxtBull, color=colFinal, textcolor=colText, style=label.style_label_up, size=size.tiny)
+    alert("LONG ENTRY: " + finalTxtBull, alert.freq_once_per_bar_close)
+
+if fireShort
+    colFinal = isGoodTime ? colShortBright : colShortPale
+    label.new(x=bar_index, y=high + padding, text=finalTxtBear, color=colFinal, textcolor=colTextW, style=label.style_label_down, size=size.tiny)
+    alert("SHORT ENTRY: " + finalTxtBear, alert.freq_once_per_bar_close)
+
+if exitLong
+    label.new(x=bar_index, y=low - padding, text=txtExit, color=colExit, textcolor=colTextW, style=label.style_label_up, size=size.tiny)
+    alert("EXIT LONG", alert.freq_once_per_bar_close)
+
+if exitShort
+    label.new(x=bar_index, y=high + padding, text=txtExit, color=colExit, textcolor=colTextW, style=label.style_label_down, size=size.tiny)
+    alert("EXIT SHORT", alert.freq_once_per_bar_close)
+
+// ==========================================
+// 5. DASHBOARD RENDER (MTF)
 // ==========================================
 
 totalCols = 7 + dashOffsetH
-// Border color is set to transparent (invisible grid)
 var table dash = table.new(position.top_right, totalCols, 25, frame_width=0, border_width=1, border_color=colBorder)
 
 if showDash and barstate.islast
-    // 1. Vertical Offset
     if dashOffsetV > 0
         for r = 0 to dashOffsetV - 1
             table.cell(dash, 0, r, "", bgcolor=colTransp)
     
-    // 2. Horizontal Offset
     if dashOffsetH > 0
         for c = 7 to totalCols - 1
             for r = 0 to 20
@@ -115,14 +163,14 @@ if showDash and barstate.islast
 
     r = dashOffsetV
     
-    // --- HEADER ---
-    table.cell(dash, 0, r, "RASKLAD v1.3.2", text_color=color.white, bgcolor=color.new(color.blue, 40), text_size=dashSize)
+    // Header
+    table.cell(dash, 0, r, "RASKLAD", text_color=color.white, bgcolor=color.new(color.blue, 40), text_size=dashSize)
     tfs = array.from("1m", "5m", "15m", "1h", "4h", "1d")
     for i = 0 to 5
         table.cell(dash, i + 1, r, array.get(tfs, i), text_color=color.white, bgcolor=color.new(color.blue, 60), text_size=dashSize)
     r += 1
 
-    // --- ROW: 3 HAshi ---
+    // 3 HAshi
     table.cell(dash, 0, r, "3 HAshi", text_color=color.white, bgcolor=colDarkBg, text_halign=text.align_left, text_size=dashSize)
     p_up = array.from(tG1, tG5, tG15, tG60, tG240, tGD)
     p_dn = array.from(tR1, tR5, tR15, tR60, tR240, tRD)
@@ -131,12 +179,12 @@ if showDash and barstate.islast
         table.cell(dash, i + 1, r, u ? "LONG" : d ? "SHORT" : "---", bgcolor=u ? colLongBright : d ? colShortBright : color.gray, text_size=dashSize)
     r += 1
 
-    // --- ROWS: TREND FILTERS ---
+    // Indicators
     draw_bool_row(dash, r, "SMA 200", bSma1, bSma5, bSma15, bSma60, bSma240, bSmaD, colLongBright, colShortBright, dashSize, colDarkBg), r += 1
     draw_bool_row(dash, r, "EMA 200", bEma1, bEma5, bEma15, bEma60, bEma240, bEmaD, colLongBright, colShortBright, dashSize, colDarkBg), r += 1
     draw_bool_row(dash, r, "VWAP", bVwap1, bVwap5, bVwap15, bVwap60, bVwap240, bVwapD, colLongBright, colShortBright, dashSize, colDarkBg), r += 1
     
-    // --- ROW: HARSI ---
+    // HARSI
     table.cell(dash, 0, r, "HARSI", text_color=color.white, bgcolor=colDarkBg, text_halign=text.align_left, text_size=dashSize)
     h_vals = array.from(bHar1, bHar5, bHar15, bHar60, bHar240, bHarD)
     for i = 0 to 5
@@ -144,7 +192,7 @@ if showDash and barstate.islast
         table.cell(dash, i + 1, r, hv ? "UP" : "DOWN", bgcolor=hv ? colLongBright : colShortBright, text_size=dashSize)
     r += 1
 
-    // --- ROW: TIME ---
+    // TIME
     table.cell(dash, 0, r, "TIME", text_color=color.white, bgcolor=colDarkBg, text_halign=text.align_left, text_size=dashSize)
     t_txt = inOpen ? "MESS" : isGoodTime ? "GOOD" : "QUIET"
     t_col = inOpen ? colShortBright : isGoodTime ? colLongBright : color.gray
@@ -152,7 +200,7 @@ if showDash and barstate.islast
     table.merge_cells(dash, 1, r, 6, r)
     r += 1
 
-    // --- ROW: ACTION ---
+    // ACTION
     table.cell(dash, 0, r, "ACTION", text_color=color.white, bgcolor=colDarkBg, text_halign=text.align_left, text_size=dashSize)
     aB = array.from(actB1, actB5, actB15, actB60, actB240, actBD)
     aS = array.from(actS1, actS5, actS15, actS60, actS240, actSD)
@@ -161,7 +209,7 @@ if showDash and barstate.islast
         table.cell(dash, i + 1, r, buy ? "BUY" : sell ? "SELL" : "WAIT", bgcolor=buy ? colLongBright : sell ? colShortBright : color.gray, text_size=dashSize)
 
 // ==========================================
-// 5. ALERTS
+// 6. ALERTS
 // ==========================================
 alertcondition(actB5 or actB15, "MTF Buy Signal", "Trend alignment detected on multiple TFs")
 alertcondition(actS5 or actS15, "MTF Sell Signal", "Trend alignment detected on multiple TFs")
