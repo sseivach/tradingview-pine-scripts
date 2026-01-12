@@ -2,7 +2,7 @@
 // © Sergei Seivach
 
 //@version=6
-indicator("Chotkiy Rasklad 1.4", overlay=true, max_labels_count=500)
+indicator("Chotkiy Rasklad 1.5", overlay=true, max_labels_count=500)
 
 // ==========================================
 // 1. SETTINGS
@@ -20,10 +20,9 @@ sessEvening = input.session("1400-1530", "Evening Session", group="Time Settings
 daysOfWeek  = "1234567" 
 
 showDash    = input.bool(true, "Show Dashboard", group="Dashboard")
-dashSize    = input.string(size.tiny, "Dashboard Size", options=[size.tiny, size.small, size.normal], group="Dashboard")
-// DEFAULTS: V=0, H=3
-dashOffsetV = input.int(0, "Vertical Offset (Top)", minval=0, maxval=20, group="Dashboard")
-dashOffsetH = input.int(3, "Horizontal Offset (Right)", minval=0, maxval=10, group="Dashboard")
+dashSize    = input.string(size.small, "Dashboard Size", options=[size.tiny, size.small, size.normal], group="Dashboard")
+dashOffsetV = input.int(1, "Vertical Offset (Top)", minval=0, maxval=20, group="Dashboard")
+dashOffsetH = input.int(1, "Horizontal Offset (Right)", minval=0, maxval=10, group="Dashboard")
 
 colLongBright  = color.rgb(0, 255, 51)    
 colLongPale    = color.rgb(131, 255, 135) 
@@ -35,6 +34,7 @@ colExit        = color.gray
 colDarkBg      = color.rgb(15, 15, 15)       
 colTransp      = color.new(color.black, 100) 
 colBorder      = color.new(color.black, 100)
+colSkyBlue     = color.rgb(0, 191, 255) // Sky blue for extreme trend
 
 // ==========================================
 // 2. GLOBAL HELPER FUNCTIONS
@@ -53,6 +53,9 @@ get_rasklad_values() =>
     emaVal  = ta.ema(close, lenEma)
     vwapVal = ta.vwap(close)
     
+    // ADX Calculation
+    [_, _, adxVal] = ta.dmi(14, 14)
+    
     rsiVal  = ta.rsi(close, lenRSI)
     isHarsiGreen = rsiVal > 50
     
@@ -67,7 +70,7 @@ get_rasklad_values() =>
     isSell = tR and not bSma and not bEma and not bVwap and not isHarsiGreen
     
     // Return all data needed for both Chart Labels and MTF Dashboard
-    [bSma, bEma, bVwap, isHarsiGreen, tG, tR, isBuy, isSell, isGreen, isRed]
+    [bSma, bEma, bVwap, isHarsiGreen, tG, tR, isBuy, isSell, isGreen, isRed, adxVal]
 
 draw_bool_row(table dash, int row_idx, string title, bool v1, bool v5, bool v15, bool v60, bool v240, bool vD, color cUp, color cDn, string sSize, color bg) =>
     table.cell(dash, 0, row_idx, title, text_color=color.white, bgcolor=bg, text_halign=text.align_left, text_size=sSize)
@@ -81,15 +84,15 @@ draw_bool_row(table dash, int row_idx, string title, bool v1, bool v5, bool v15,
 // ==========================================
 
 // MTF Data
-[bSma1, bEma1, bVwap1, bHar1, tG1, tR1, actB1, actS1, g1, r1] = request.security(syminfo.tickerid, "1", get_rasklad_values())
-[bSma5, bEma5, bVwap5, bHar5, tG5, tR5, actB5, actS5, g5, r5] = request.security(syminfo.tickerid, "5", get_rasklad_values())
-[bSma15, bEma15, bVwap15, bHar15, tG15, tR15, actB15, actS15, g15, r15] = request.security(syminfo.tickerid, "15", get_rasklad_values())
-[bSma60, bEma60, bVwap60, bHar60, tG60, tR60, actB60, actS60, g60, r60] = request.security(syminfo.tickerid, "60", get_rasklad_values())
-[bSma240, bEma240, bVwap240, bHar240, tG240, tR240, actB240, actS240, g240, r240] = request.security(syminfo.tickerid, "240", get_rasklad_values())
-[bSmaD, bEmaD, bVwapD, bHarD, tGD, tRD, actBD, actSD, gD, rD] = request.security(syminfo.tickerid, "D", get_rasklad_values())
+[bSma1, bEma1, bVwap1, bHar1, tG1, tR1, actB1, actS1, g1, r1, adx1] = request.security(syminfo.tickerid, "1", get_rasklad_values())
+[bSma5, bEma5, bVwap5, bHar5, tG5, tR5, actB5, actS5, g5, r5, adx5] = request.security(syminfo.tickerid, "5", get_rasklad_values())
+[bSma15, bEma15, bVwap15, bHar15, tG15, tR15, actB15, actS15, g15, r15, adx15] = request.security(syminfo.tickerid, "15", get_rasklad_values())
+[bSma60, bEma60, bVwap60, bHar60, tG60, tR60, actB60, actS60, g60, r60, adx60] = request.security(syminfo.tickerid, "60", get_rasklad_values())
+[bSma240, bEma240, bVwap240, bHar240, tG240, tR240, actB240, actS240, g240, r240, adx240] = request.security(syminfo.tickerid, "240", get_rasklad_values())
+[bSmaD, bEmaD, bVwapD, bHarD, tGD, tRD, actBD, actSD, gD, rD, adxD] = request.security(syminfo.tickerid, "D", get_rasklad_values())
 
 // Current Chart Data
-[curSma, curEma, curVwap, curHar, curTG, curTR, curBuy, curSell, curGreen, curRed] = get_rasklad_values()
+[curSma, curEma, curVwap, curHar, curTG, curTR, curBuy, curSell, curGreen, curRed, curAdx] = get_rasklad_values()
 
 inOpen    = not na(time(timeframe.period, sessOpen + ":" + daysOfWeek))
 inMorning = not na(time(timeframe.period, sessMorning + ":" + daysOfWeek))
@@ -189,6 +192,16 @@ if showDash and barstate.islast
     for i = 0 to 5
         hv = array.get(h_vals, i)
         table.cell(dash, i + 1, r, hv ? "UP" : "DOWN", bgcolor=hv ? colLongBright : colShortBright, text_size=dashSize)
+    r += 1
+
+    // ADX Row
+    table.cell(dash, 0, r, "ADX", text_color=color.white, bgcolor=colDarkBg, text_halign=text.align_left, text_size=dashSize)
+    adx_vals = array.from(adx1, adx5, adx15, adx60, adx240, adxD)
+    for i = 0 to 5
+        float av = array.get(adx_vals, i)
+        // Custom Color Logic
+        color av_col = av < 20 ? color.gray : av <= 25 ? color.yellow : av <= 50 ? colLongBright : colSkyBlue
+        table.cell(dash, i + 1, r, str.tostring(av, "0.0"), bgcolor=av_col, text_size=dashSize, text_color=color.black)
     r += 1
 
     // TIME
