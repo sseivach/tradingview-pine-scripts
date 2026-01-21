@@ -1,43 +1,58 @@
-# Chotkiy Rasklad
+# Chotkiy Rasklad v1.5
 
 ![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)
 ![Language: Pine Script](https://img.shields.io/badge/Language-Pine%20Script%20v6-blue.svg)
+![Platform: TradingView](https://img.shields.io/badge/Platform-TradingView-black.svg)
 
-**Chotkiy Rasklad** is a comprehensive Multi-Timeframe (MTF) trend scanner and strategy indicator for TradingView. It combines Heikin Ashi candle analysis, classical trend filters (SMA, EMA, VWAP), and momentum indicators (HARSI) to provide high-probability entry and exit signals.
+**Chotkiy Rasklad v1.5** is a professional Multi-Timeframe (MTF) trend scanner and volatility analyzer for TradingView.
 
-Designed to filter out market noise and identify strong trend alignments across multiple timeframes (from 1 minute to Daily).
+Designed for precision scalping and day trading, it eliminates market noise by enforcing a strict "Confluence" rule: a trade is only valid when **Price Structure**, **Institutional Trends**, and **Volatility (ADX)** align perfectly across multiple timeframes.
 
 ---
-![Dashboard Preview](scr2.png)
+
+## 📸 Preview
+
+![Dashboard Preview](screenshot.png)
+*(Please upload a screenshot of your chart here and name it screenshot.png)*
+
 ---
 
-## 🚀 Features
+## 🚀 New in v1.5: The ADX Color Engine
 
-* **Multi-Timeframe Dashboard:** A customizable on-screen dashboard monitoring trends across 6 timeframes simultaneously (1m, 5m, 15m, 1h, 4h, 1D).
-* **Trend Confluence System:** Checks for alignment between:
-    * Heikin Ashi Candle structure (3-candle sequence).
-    * Simple Moving Average (SMA 200).
-    * Exponential Moving Average (EMA 200).
-    * VWAP (Volume Weighted Average Price).
-* **Momentum Filtering:** Uses HARSI (Heikin Ashi RSI) to validate trend strength.
-* **Session Filtering:** Highlights signals occurring during specific trading sessions (Morning/Evening) to avoid low-volatility "choppiness."
-* **Visual & Audio Alerts:**
-    * Chart labels for Entries (Long/Short) and Exits.
-    * Configurable alerts for automated trading or notifications.
+The core upgrade in version 1.5 is the **Volumetric Volatility Filter**. The dashboard now color-codes the ADX value to give you instant context on market energy:
 
-## 📊 Strategy Logic
+| ADX Color | Value | Market State | Action |
+| :--- | :--- | :--- | :--- |
+| **Gray** ⚪ | `< 20` | **Choppy / Dead** | ⛔ **NO TRADE.** The market has no direction. |
+| **Yellow** 🟡 | `20 - 25` | **Waking Up** | ⚠️ Watch closely. A trend is likely forming. |
+| **Green** 🟢 | `26 - 50` | **Prime Trend** | ✅ **GO.** The best zone for entries. Strong momentum. |
+| **Sky Blue** 🔵 | `> 50` | **Parabolic** | 🔥 **EXTREME.** Market is overheated. Expect a reversal or exhaustion. |
 
-The indicator generates signals based on a strict confluence of factors:
+---
 
-### Bullish Signal (Long)
-1.  **Candle Structure:** 3 consecutive Green Heikin Ashi candles with consecutive Higher Lows.
-2.  **Trend Filters:** Price is **above** SMA 200, EMA 200, and VWAP.
-3.  **Momentum:** HARSI (RSI based) is > 50.
+## 📊 Features
 
-### Bearish Signal (Short)
-1.  **Candle Structure:** 3 consecutive Red Heikin Ashi candles with consecutive Lower Highs.
-2.  **Trend Filters:** Price is **below** SMA 200, EMA 200, and VWAP.
-3.  **Momentum:** HARSI (RSI based) is < 50.
+* **MTF Dashboard:** Real-time monitoring of trend and signal status for **1m, 5m, 15m, 1h, 4h, and 1D**.
+* **Institutional Bias:** Filters signals based on the relation to **SMA 200**, **EMA 200**, and **VWAP**.
+* **Heikin Ashi Structure:** Detects valid 3-candle breakouts to filter out single-candle fakeouts.
+* **Session Awareness:** Flags the "Opening Mess" (first 15 mins of US session) and highlights Morning/Evening sessions.
+* **Smart Alerts:** Configurable alerts that trigger only when all conditions (Trend + Momentum + Structure) are met.
+
+---
+
+## 🧠 Strategy Logic
+
+The indicator uses a "Waterfall" logic system. A **BUY** or **SELL** signal is generated strictly when **ALL** conditions below are met simultaneously:
+
+### 1. Trend Filter (The Bias)
+* **Long:** Price must be ABOVE SMA 200, EMA 200, and VWAP.
+* **Short:** Price must be BELOW SMA 200, EMA 200, and VWAP.
+
+### 2. Momentum Filter (HARSI)
+* Uses **Heikin Ashi RSI**. Must be > 50 for Longs and < 50 for Shorts.
+
+### 3. Entry Trigger
+* Requires a sequence of **3 consecutive Heikin Ashi candles** in the trend direction (Green for Long, Red for Short).
 
 ---
 
@@ -46,37 +61,38 @@ The indicator generates signals based on a strict confluence of factors:
 You can customize the indicator settings via the TradingView inputs menu:
 
 ### Global Filters
-* **SMA Length:** Length of the Simple Moving Average (Default: 200).
-* **EMA Length:** Length of the Exponential Moving Average (Default: 200).
-
-### HARSI Settings
-* **RSI Length / Smoothing:** Adjust sensitivity of the momentum filter.
-
-### Time Settings
-* Define your specific session times (Opening, Morning, Evening) to color-code signals based on market activity.
+* **SMA/EMA Length:** Default is `200` (Institutional standard).
+* **HARSI Settings:** Adjust RSI length and smoothing for faster/slower reactions.
 
 ### Dashboard
-* **Show Dashboard:** Toggle the MTF table on/off.
-* **Size:** Change table size (Tiny, Small, Normal).
-* **Offset:** Adjust the vertical and horizontal position of the dashboard on your chart.
+* **Show Dashboard:** Toggle ON/OFF.
+* **Size:** Select `Tiny`, `Small`, or `Normal` (v1.5 defaults to Small).
+* **Offset:** Adjust vertical/horizontal positioning to fit your screen layout.
+
+### Time Settings
+* Configure session times (Opening, Morning, Evening) to match your local exchange hours.
 
 ---
 
 ## 📥 Installation
 
-1.  Copy the code from the `.pine` file in this repository.
-2.  Open **TradingView**.
-3.  Click on **Pine Editor** at the bottom of the screen.
+1.  Copy the code from `Chotkiy_Rasklad_v1.5.pine`.
+2.  Open **TradingView Chart**.
+3.  Open the **Pine Editor** (bottom panel).
 4.  Paste the code and click **Save**.
 5.  Click **Add to Chart**.
 
+---
+
 ## ⚠️ Disclaimer
 
-This tool is for educational and informational purposes only. It does not constitute financial advice. Trading financial markets involves risk, and past performance is not indicative of future results. Always manage your risk appropriately.
+This project is for **educational purposes only**. It does not constitute financial advice. Trading financial markets involves high risk, and you may lose your capital. Always use proper risk management (stop-losses) and do your own research.
+
+---
 
 ## 📄 License
 
-This project is licensed under the **Mozilla Public License 2.0**.  
+This project is licensed under the **Mozilla Public License 2.0**.
 See the [LICENSE](LICENSE) file for details.
 
 ---
