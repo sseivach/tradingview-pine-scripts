@@ -10,10 +10,6 @@ Designed for precision scalping and day trading, it eliminates market noise by e
 
 ---
 
-## 📸 Preview
-
----
-
 ## 🚀 New in v1.5: The ADX Color Engine
 
 The core upgrade in version 1.5 is the **Volumetric Volatility Filter**. The dashboard now color-codes the ADX value to give you instant context on market energy:
