@@ -23,6 +23,9 @@ The core upgrade in version 1.5 is the **Volumetric Volatility Filter**. The das
 
 ---
 
+![Dashboard Preview](scr1.png)
+
+---
 ## 📊 Features
 
 * **MTF Dashboard:** Real-time monitoring of trend and signal status for **1m, 5m, 15m, 1h, 4h, and 1D**.
