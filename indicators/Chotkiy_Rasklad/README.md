@@ -12,9 +12,6 @@ Designed for precision scalping and day trading, it eliminates market noise by e
 
 ## 📸 Preview
 
-![Dashboard Preview](screenshot.png)
-*(Please upload a screenshot of your chart here and name it screenshot.png)*
-
 ---
 
 ## 🚀 New in v1.5: The ADX Color Engine
